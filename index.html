@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JEE/CBSE Mission Control v2</title>
+    <title>JEE/CBSE Mission Control v3</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -153,14 +153,23 @@
             font-family: monospace;
             font-size: 0.9rem;
         }
+
+        .alert-zone {
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <h1>🎯 JEE/CBSE Mission Control <span style="font-size: 1.2rem; color: var(--warning-color);">v2.0</span></h1>
-        <p>Destroy your backlogs systematically and export progress directly to your AI Guider.</p>
+        <h1>🎯 JEE/CBSE Mission Control <span style="font-size: 1.2rem; color: var(--danger-color);">v3.0 (Smart Engine)</span></h1>
+        <p>Auto-adds daily live classes so your backlog calculation remains 100% accurate.</p>
     </header>
 
     <div class="grid">
@@ -170,27 +179,29 @@
             <p style="text-align: center; font-size: 0.85rem; color: #94a3b8;">Total Classes Left</p>
         </div>
         <div class="card">
-            <h3>Estimated Catch-Up</h3>
-            <div class="stat-num" id="clearDateDisp" style="color: var(--accent-color); font-size: 1.5rem; padding-top: 10px;">Calculating...</div>
+            <h3>Backlog Velocity</h3>
+            <div class="stat-num" id="velocityDisp" style="color: var(--accent-color); font-size: 1.5rem; padding-top: 10px;">Checking...</div>
+            <div id="alertZone" class="alert-zone"></div>
         </div>
         <div class="card">
             <h3>Study Streak</h3>
             <div class="stat-num" id="streakDisp" style="color: var(--warning-color);">🔥 0 Days</div>
+            <p style="text-align: center; font-size: 0.75rem; color: #94a3b8;" id="lastAutoAddText">Engine Synced</p>
         </div>
     </div>
 
     <div class="card" style="margin-bottom: 30px;">
-        <h3>Subject Backlog Reduction Trackers (Goal: Hit 100%)</h3>
+        <h3>Subject Backlog Tracker (Target: Clear Everything)</h3>
         <div class="progress-container">
-            <div class="progress-label"><span>Physics Backlog Cleared</span><span id="pText">0/30 (0%)</span></div>
+            <div class="progress-label"><span>Physics Backlog</span><span id="pText">30 Classes Left</span></div>
             <div class="progress-bar-bg"><div id="pBar" class="progress-bar-fill" style="background-color: var(--accent-color);"></div></div>
         </div>
         <div class="progress-container">
-            <div class="progress-label"><span>Chemistry Backlog Cleared</span><span id="cText">0/30 (0%)</span></div>
+            <div class="progress-label"><span>Chemistry Backlog</span><span id="cText">30 Classes Left</span></div>
             <div class="progress-bar-bg"><div id="cBar" class="progress-bar-fill" style="background-color: var(--success-color);"></div></div>
         </div>
         <div class="progress-container">
-            <div class="progress-label"><span>Maths Backlog Cleared</span><span id="mText">0/30 (0%)</span></div>
+            <div class="progress-label"><span>Maths Backlog</span><span id="mText">30 Classes Left</span></div>
             <div class="progress-bar-bg"><div id="mBar" class="progress-bar-fill" style="background-color: var(--warning-color);"></div></div>
         </div>
     </div>
@@ -199,7 +210,7 @@
         <div class="card">
             <h3>Log Today's Work</h3>
             
-            <label style="color: var(--warning-color); margin-bottom: 8px;">Classes Cleared Today (By Subject):</label>
+            <label style="color: var(--warning-color); margin-bottom: 8px;">Classes Watched Today (Old/Backlog):</label>
             <div class="sub-input-grid">
                 <div>
                     <label style="font-size: 0.8rem;">Physics</label>
@@ -248,7 +259,7 @@
                 <textarea id="doubts" rows="2" placeholder="Any concepts you couldn't solve..."></textarea>
             </div>
 
-            <button onclick="logProgress()" class="btn-success">Save Progress & Update Dashboards</button>
+            <button onclick="logProgress()" class="btn-success">Save Progress & Compute Velocity</button>
         </div>
 
         <div class="card">
@@ -270,55 +281,98 @@
 </div>
 
 <script>
-    // System Core Memory
-    let backlogData = JSON.parse(localStorage.getItem('jee_backlog_tracker_v2')) || {
+    // System Memory Core with Time Tracking Capabilities
+    let backlogData = JSON.parse(localStorage.getItem('jee_backlog_tracker_v3')) || {
         physicsLeft: 30,
         chemistryLeft: 30,
         mathsLeft: 30,
         streak: 0,
-        lastLoggedDate: null
+        lastLoggedDate: null,
+        lastEngineCheck: new Date().toDateString() 
     };
 
-    function updateDashboard() {
+    // AUTOMATIC LIVE CLASS INCREMENT SYSTEM
+    function checkAndAddLiveClasses() {
+        const today = new Date();
+        const todayStr = today.toDateString();
+        
+        if (backlogData.lastEngineCheck !== todayStr) {
+            let lastCheckDate = new Date(backlogData.lastEngineCheck);
+            let daysMissed = Math.floor((today - lastCheckDate) / (1000 * 60 * 60 * 24));
+            
+            let addedClasses = 0;
+            // Iterate through missed days to avoid adding on Sundays
+            for (let i = 1; i <= daysMissed; i++) {
+                let checkDay = new Date(lastCheckDate);
+                checkDay.setDate(checkDay.getDate() + i);
+                if (checkDay.getDay() !== 0) { // 0 is Sunday
+                    backlogData.physicsLeft += 1;
+                    backlogData.chemistryLeft += 1;
+                    backlogData.mathsLeft += 1;
+                    addedClasses += 3;
+                }
+            }
+            backlogData.lastEngineCheck = todayStr;
+            document.getElementById('lastAutoAddText').innerText = `Engine Added +${addedClasses} New Classes`;
+        } else {
+            document.getElementById('lastAutoAddText').innerText = `Synced with Today's Batch`;
+        }
+    }
+
+    function updateDashboard(lastWatchedCount = 4) {
+        checkAndAddLiveClasses();
+
         const pLeft = backlogData.physicsLeft;
         const cLeft = backlogData.chemistryLeft;
         const mLeft = backlogData.mathsLeft;
-        
         const totalLeft = pLeft + cLeft + mLeft;
+        
         document.getElementById('totalBacklogDisp').innerText = totalLeft;
         document.getElementById('streakDisp').innerText = `🔥 ${backlogData.streak} Days`;
         
-        // Update Progress Bars based on initial baseline of 30 classes per subject
-        const pDone = 30 - pLeft;
-        const pPct = Math.round((pDone / 30) * 100);
-        document.getElementById('pBar').style.width = `${pPct}%`;
-        document.getElementById('pText').innerText = `${pDone}/30 Classes (${pPct}%)`;
+        // Update Labels text
+        document.getElementById('pText').innerText = `${pLeft} Classes Remaining`;
+        document.getElementById('cText').innerText = `${cLeft} Classes Remaining`;
+        document.getElementById('mText').innerText = `${mLeft} Classes Remaining`;
 
-        const cDone = 30 - cLeft;
-        const cPct = Math.round((cDone / 30) * 100);
-        document.getElementById('cBar').style.width = `${cPct}%`;
-        document.getElementById('cText').innerText = `${cDone}/30 Classes (${cPct}%)`;
+        // Progress visuals (capped display calculation)
+        document.getElementById('pBar').style.width = `${Math.max(10, 100 - (pLeft*2))}%`;
+        document.getElementById('cBar').style.width = `${Math.max(10, 100 - (cLeft*2))}%`;
+        document.getElementById('mBar').style.width = `${Math.max(10, 100 - (mLeft*2))}%`;
 
-        const mDone = 30 - mLeft;
-        const mPct = Math.round((mDone / 30) * 100);
-        document.getElementById('mBar').style.width = `${mPct}%`;
-        document.getElementById('mText').innerText = `${mDone}/30 Classes (${mPct}%)`;
-
-        // Estimate Days Left Assuming average 4 classes a day pacing
-        if(totalLeft <= 0) {
-            document.getElementById('clearDateDisp').innerText = "🎉 All Cleared!";
+        // VELOCITY TRACKER LOGIC
+        const vDisp = document.getElementById('velocityDisp');
+        const alertZone = document.getElementById('alertZone');
+        
+        if(lastWatchedCount > 3) {
+            vDisp.innerText = "SHRINKING";
+            vDisp.style.color = "var(--success-color)";
+            alertZone.innerText = "Winning! You are beating the batch.";
+            alertZone.style.backgroundColor = "rgba(16, 185, 129, 0.2)";
+            alertZone.style.color = "var(--success-color)";
+        } else if (lastWatchedCount === 3) {
+            vDisp.innerText = "STAGNANT";
+            vDisp.style.color = "var(--warning-color)";
+            alertZone.innerText = "Stuck! Backlog count won't change.";
+            alertZone.style.backgroundColor = "rgba(245, 158, 11, 0.2)";
+            alertZone.style.color = "var(--warning-color)";
         } else {
-            const daysEst = Math.ceil(totalLeft / 4);
-            document.getElementById('clearDateDisp').innerText = `~${daysEst} Days Left`;
+            vDisp.innerText = "GROWING";
+            vDisp.style.color = "var(--danger-color)";
+            alertZone.innerText = "Danger! Backlog is increasing.";
+            alertZone.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
+            alertZone.style.color = "var(--danger-color)";
         }
         
-        localStorage.setItem('jee_backlog_tracker_v2', JSON.stringify(backlogData));
+        localStorage.setItem('jee_backlog_tracker_v3', JSON.stringify(backlogData));
     }
 
     function logProgress() {
         const pWatched = Math.max(0, parseInt(document.getElementById('pWatched').value) || 0);
         const cWatched = Math.max(0, parseInt(document.getElementById('cWatched').value) || 0);
         const mWatched = Math.max(0, parseInt(document.getElementById('mWatched').value) || 0);
+        
+        const totalWatchedToday = pWatched + cWatched + mWatched;
 
         backlogData.physicsLeft = Math.max(0, backlogData.physicsLeft - pWatched);
         backlogData.chemistryLeft = Math.max(0, backlogData.chemistryLeft - cWatched);
@@ -331,14 +385,13 @@
             backlogData.lastLoggedDate = todayStr;
         }
 
-        updateDashboard();
+        updateDashboard(totalWatchedToday);
         
-        // Reset dynamic daily inputs back to default placeholder values
         document.getElementById('pWatched').value = 0;
         document.getElementById('cWatched').value = 0;
         document.getElementById('mWatched').value = 0;
         
-        alert("Progress tracked and analytics saved!");
+        alert("Progress updated. Core Velocity evaluated!");
     }
 
     function generateAiReport() {
@@ -350,11 +403,13 @@
         const doubts = document.getElementById('doubts').value || "No major blockers today!";
         
         const totalLeft = backlogData.physicsLeft + backlogData.chemistryLeft + backlogData.mathsLeft;
+        const velocityState = document.getElementById('velocityDisp').innerText;
 
-        const reportText = `PROGRESS REPORT DISPATCH (v2)
-------------------------------------
+        const reportText = `PROGRESS REPORT DISPATCH (v3.0 - AUTOMATED ENGINE)
+--------------------------------------------------------
 • Current Streak: ${backlogData.streak} Days
 • Watch Speed Config: ${speed}x
+• Today's Backlog Velocity: ${velocityState}
 
 DAILY OBJECTIVE CHECKLIST:
 - Formulas & Class Notes Checked: ${notes}
@@ -364,16 +419,16 @@ DAILY OBJECTIVE CHECKLIST:
 CRITICAL SYLLABUS TARGET:
 "${testTarget}"
 
-CURRENT BACKLOG LEVEL MATRIX:
-- Physics: ${backlogData.physicsLeft}/30 Classes Left
-- Chemistry: ${backlogData.chemistryLeft}/30 Classes Left
-- Maths: ${backlogData.mathsLeft}/30 Classes Left
-- Total Remaining Classes: ${totalLeft}
+CURRENT DETAILED BACKLOG LEVELS:
+- Physics Left: ${backlogData.physicsLeft} Classes
+- Chemistry Left: ${backlogData.chemistryLeft} Classes
+- Maths Left: ${backlogData.mathsLeft} Classes
+- Total Net Backlog: ${totalLeft}
 
 BLOCKER DOUBTS / DIFFICULT CONCEPT NOTES:
 "${doubts}"
 
-👉 Study Guider: Please assess my progress matrix and deliver custom strategy adjustments!`;
+👉 Study Guider: Please assess my velocity and help me keep my graph shrinking!`;
 
         document.getElementById('aiOutput').innerText = reportText;
         document.getElementById('outputContainer').style.display = 'block';
@@ -394,14 +449,15 @@ BLOCKER DOUBTS / DIFFICULT CONCEPT NOTES:
                 chemistryLeft: 30,
                 mathsLeft: 30,
                 streak: 0,
-                lastLoggedDate: null
+                lastLoggedDate: null,
+                lastEngineCheck: new Date().toDateString()
             };
-            updateDashboard();
+            updateDashboard(4);
         }
     }
 
     // Initialize layout
-    updateDashboard();
+    updateDashboard(4);
 </script>
 </body>
 </html>
